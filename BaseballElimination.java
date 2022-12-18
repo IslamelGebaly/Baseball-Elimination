@@ -1,8 +1,8 @@
-import edu.princeton.cs.algs4.Bag;
-import edu.princeton.cs.algs4.In;
-import edu.princeton.cs.algs4.StdOut;
+import edu.princeton.cs.algs4.*;
 
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 
 public class BaseballElimination {
 
@@ -70,6 +70,33 @@ public class BaseballElimination {
 
     // is given team eliminated?
     public boolean isEliminated(String team) {
+        Bag<FlowEdge> flowEdges = new Bag<>();
+        HashMap<Integer, List<Integer>> mapping = new HashMap<>();
+        int teamIndex = findTeam(team);
+        int s = 0;
+        int v = 1;
+        int t;
+
+        for (int i = 0; i < numberOfTeams(); i++) {
+            if (i == teamIndex)
+                continue;
+            for (int j = i + 1; j < numberOfTeams(); j++) {
+                if (j == teamIndex)
+                    continue;
+
+                mapping.put(v, Arrays.asList(i, j));
+                flowEdges.add(new FlowEdge(s, v++, games[i][j]));
+            }
+        }
+
+        for (int i = 1; i < v; i++) {
+            flowEdges.add(new FlowEdge(i, mapping.get(i).get(0), Double.POSITIVE_INFINITY));
+            flowEdges.add(new FlowEdge(i, mapping.get(i).get(1), Double.POSITIVE_INFINITY));
+        }
+
+        t = v + numberOfTeams();
+
+        FlowNetwork fn = new FlowNetwork(t);
         return false;
     }
 
@@ -79,7 +106,6 @@ public class BaseballElimination {
     }
 
     ///find team in array
-    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings("ES_COMPARING_PARAMETER_STRING_WITH_EQ")
     private int findTeam(String team) {
         for (int i = 0; i < numberOfTeams(); i++) {
             if (teams[i].equals(team))
