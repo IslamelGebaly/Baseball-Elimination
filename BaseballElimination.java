@@ -70,9 +70,59 @@ public class BaseballElimination {
 
     // is given team eliminated?
     public boolean isEliminated(String team) {
+        int teamIndex = findTeam(team);
+        if (triviallyEliminated(teamIndex))
+            return true;
+
+        FlowNetwork fn = constructNetwork(teamIndex);
+        FordFulkerson ff = new FordFulkerson(fn, 0, fn.V() - 1);
+        for (int i = 1; i < fn.V(); i++) {
+            StdOut.println(ff.inCut(i));
+            if (ff.inCut(i))
+                return true;
+        }
+
+        return false;
+    }
+
+    // subset R of teams that eliminates given team; null if not eliminated
+    public Iterable<String> certificateOfElimination(String team) {
+        int teamIndex = findTeam(team);
+        if (triviallyEliminated(teamIndex))
+            return new Bag<>();
+
+        Bag<String> R = new Bag<>();
+
+        FlowNetwork fn = constructNetwork(teamIndex);
+        FordFulkerson ff = new FordFulkerson(fn, 0, fn.V() - 1);
+        for (int i = 1; i < fn.V(); i--) {
+            if (ff.inCut(i))
+                R.add("yes");
+        }
+
+        return R;
+    }
+
+    ///find team in array
+    private int findTeam(String team) {
+        for (int i = 0; i < numberOfTeams(); i++) {
+            if (teams[i].equals(team))
+                return i;
+        }
+        throw new IllegalArgumentException();
+    }
+
+    private boolean triviallyEliminated(int teamIndex) {
+        for (int i = 0; i < numberOfTeams(); i++) {
+            if (wins[teamIndex] + remaining[teamIndex] < wins[i])
+                return true;
+        }
+        return false;
+    }
+
+    private FlowNetwork constructNetwork(int teamIndex) {
         Bag<FlowEdge> flowEdges = new Bag<>();
         HashMap<Integer, List<Integer>> mapping = new HashMap<>();
-        int teamIndex = findTeam(team);
         int s = 0;
         int v = 1;
         int t;
@@ -89,44 +139,33 @@ public class BaseballElimination {
             }
         }
 
+        t = v + numberOfTeams() - 1;
         for (int i = 1; i < v; i++) {
-            flowEdges.add(new FlowEdge(i, mapping.get(i).get(0), Double.POSITIVE_INFINITY));
-            flowEdges.add(new FlowEdge(i, mapping.get(i).get(1), Double.POSITIVE_INFINITY));
+            flowEdges.add(new FlowEdge(i, mapping.get(i).get(0) + v, Double.POSITIVE_INFINITY));
+            flowEdges.add(new FlowEdge(mapping.get(i).get(0) + v, t, wins[teamIndex] + remaining[teamIndex] -
+                    wins[mapping.get(i).get(0)]));
+            flowEdges.add(new FlowEdge(i, mapping.get(i).get(1) + v, Double.POSITIVE_INFINITY));
+            flowEdges.add(new FlowEdge(mapping.get(i).get(1) + v, t, wins[teamIndex] + remaining[teamIndex] -
+                    wins[mapping.get(i).get(1)]));
         }
 
-        t = v + numberOfTeams();
-
-        FlowNetwork fn = new FlowNetwork(t);
-        return false;
-    }
-
-    // subset R of teams that eliminates given team; null if not eliminated
-    public Iterable<String> certificateOfElimination(String team) {
-        return new Bag<String>();
-    }
-
-    ///find team in array
-    private int findTeam(String team) {
-        for (int i = 0; i < numberOfTeams(); i++) {
-            if (teams[i].equals(team))
-                return i;
+        FlowNetwork fn = new FlowNetwork(t + 1);
+        for (FlowEdge flowEdge : flowEdges) {
+            fn.addEdge(flowEdge);
         }
-        throw new IllegalArgumentException();
+
+        return fn;
     }
 
     public static void main(String[] args) {
         BaseballElimination be = new BaseballElimination("teams4.txt");
 
         for (String team1 : be.teams()) {
-            StdOut.print(
-                    team1 + " "
-                            + be.wins(team1) + " "
-                            + be.losses(team1) + " "
-                            + be.remaining(team1)
-            );
-            for (String team2 : be.teams)
-                StdOut.print(" " + be.against(team1, team2));
-            StdOut.print("\n");
+            if (be.isEliminated(team1)) {
+                StdOut.println(team1);
+                for (String t : be.certificateOfElimination(team1))
+                    StdOut.println(t);
+            }
         }
     }
 }
