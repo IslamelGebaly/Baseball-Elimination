@@ -1,5 +1,9 @@
-import edu.princeton.cs.algs4.*;
+import edu.princeton.cs.algs4.FlowEdge;
+import edu.princeton.cs.algs4.FlowNetwork;
+import edu.princeton.cs.algs4.FordFulkerson;
+import edu.princeton.cs.algs4.In;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -77,7 +81,6 @@ public class BaseballElimination {
         FlowNetwork fn = constructNetwork(teamIndex);
         FordFulkerson ff = new FordFulkerson(fn, 0, fn.V() - 1);
         for (int i = 1; i < fn.V(); i++) {
-            StdOut.println(ff.inCut(i));
             if (ff.inCut(i))
                 return true;
         }
@@ -88,16 +91,24 @@ public class BaseballElimination {
     // subset R of teams that eliminates given team; null if not eliminated
     public Iterable<String> certificateOfElimination(String team) {
         int teamIndex = findTeam(team);
-        if (triviallyEliminated(teamIndex))
-            return new Bag<>();
+        int o = 1;
+        int[] order = new int[numberOfTeams()];
+        for (int i = 0; i < numberOfTeams(); i++) {
+            if (i == teamIndex)
+                continue;
+            order[o++] = i;
+        }
 
-        Bag<String> R = new Bag<>();
+        if (triviallyEliminated(teamIndex))
+            return new ArrayList<>();
+
+        ArrayList<String> R = new ArrayList<>();
 
         FlowNetwork fn = constructNetwork(teamIndex);
         FordFulkerson ff = new FordFulkerson(fn, 0, fn.V() - 1);
-        for (int i = 1; i < fn.V(); i--) {
+        for (int i = 1; i < numberOfTeams(); i++) {
             if (ff.inCut(i))
-                R.add("yes");
+                R.add(teams[order[i]]);
         }
 
         return R;
@@ -121,51 +132,55 @@ public class BaseballElimination {
     }
 
     private FlowNetwork constructNetwork(int teamIndex) {
-        Bag<FlowEdge> flowEdges = new Bag<>();
+        ArrayList<FlowEdge> flowEdges = new ArrayList<>();
         HashMap<Integer, List<Integer>> mapping = new HashMap<>();
-        int s = 0;
-        int v = 1;
-        int t;
+        int[] order = new int[numberOfTeams()];
+        int o = 1;
+        for (int i = 0; i < numberOfTeams(); i++) {
+            if (i == teamIndex)
+                order[i] = -1;
+            else
+                order[i] = o++;
+        }
 
+        int pairings = numberOfTeams();
         for (int i = 0; i < numberOfTeams(); i++) {
             if (i == teamIndex)
                 continue;
             for (int j = i + 1; j < numberOfTeams(); j++) {
-                if (j == teamIndex)
+                if (i == j || j == teamIndex)
                     continue;
 
-                mapping.put(v, Arrays.asList(i, j));
-                flowEdges.add(new FlowEdge(s, v++, games[i][j]));
+                mapping.put(pairings, Arrays.asList(i, j));
+                flowEdges.add(new FlowEdge(0, pairings++, games[i][j]));
             }
         }
 
-        t = v + numberOfTeams() - 1;
-        for (int i = 1; i < v; i++) {
-            flowEdges.add(new FlowEdge(i, mapping.get(i).get(0) + v, Double.POSITIVE_INFINITY));
-            flowEdges.add(new FlowEdge(mapping.get(i).get(0) + v, t, wins[teamIndex] + remaining[teamIndex] -
-                    wins[mapping.get(i).get(0)]));
-            flowEdges.add(new FlowEdge(i, mapping.get(i).get(1) + v, Double.POSITIVE_INFINITY));
-            flowEdges.add(new FlowEdge(mapping.get(i).get(1) + v, t, wins[teamIndex] + remaining[teamIndex] -
-                    wins[mapping.get(i).get(1)]));
+        final int T = pairings;
+
+        for (int i = 0; i < numberOfTeams(); i++) {
+            if (i == teamIndex)
+                continue;
+
+            flowEdges.add(new FlowEdge(order[i], T, wins[teamIndex] + remaining[teamIndex] - wins[i]));
         }
 
-        FlowNetwork fn = new FlowNetwork(t + 1);
-        for (FlowEdge flowEdge : flowEdges) {
-            fn.addEdge(flowEdge);
+        int team1, team2;
+        for (int pairing = numberOfTeams(); pairing < T; pairing++) {
+            team1 = order[mapping.get(pairing).get(0)];
+            team2 = order[mapping.get(pairing).get(1)];
+
+            flowEdges.add(new FlowEdge(pairing, team1, Double.POSITIVE_INFINITY));
+            flowEdges.add(new FlowEdge(pairing, team2, Double.POSITIVE_INFINITY));
         }
 
+        FlowNetwork fn = new FlowNetwork(T + 1);
+        for (FlowEdge fe : flowEdges)
+            fn.addEdge(fe);
         return fn;
     }
 
     public static void main(String[] args) {
-        BaseballElimination be = new BaseballElimination("teams4.txt");
 
-        for (String team1 : be.teams()) {
-            if (be.isEliminated(team1)) {
-                StdOut.println(team1);
-                for (String t : be.certificateOfElimination(team1))
-                    StdOut.println(t);
-            }
-        }
     }
 }
