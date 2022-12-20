@@ -30,7 +30,7 @@ public class BaseballElimination {
         games = new int[nTeams][nTeams];
         //assigning values to arrays
         for (int i = 0; i < nTeams; i++) {
-            String[] line = in.readLine().split("\\s+");
+            String[] line = in.readLine().strip().split("\\s+");
             teams[i] = line[0];
             wins[i] = Integer.parseInt(line[1]);
             losses[i] = Integer.parseInt(line[2]);
@@ -181,6 +181,6 @@ public class BaseballElimination {
     }
 
     public static void main(String[] args) {
-
+        
     }
 }
